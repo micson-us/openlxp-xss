@@ -43,7 +43,7 @@ jobs:
         git clone https://openlxp-host:${{ secrets.ACCESS_TOKEN }}@github.com/OpenLXP/openlxp-private.git
         echo "Private repository cloned successfully"
         echo "Copying .env file from openlxp-private to current working directory"
-        cp ./openlxp-private/openlxp-xss-env/.env .
+        cp ./openlxp-private/openlxp-xss/.env .
         echo "Copied .env file successfully"
         echo "Create openlxp docker network"
         docker network create openlxp
