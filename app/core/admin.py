@@ -1,22 +1,29 @@
 from django.contrib import admin
 
-from core.models import SchemaLedger, TransformationLedger
+from core.models import (ChildTermSet, SchemaLedger, Term, TermSet,
+                         TransformationLedger)
 
 
 # Register your models here.
 @admin.register(SchemaLedger)
 class SchemaLedgerAdmin(admin.ModelAdmin):
     """Admin form for the SchemaLedger model"""
-    list_display = ('id', 'schema_name', 'schema_iri', 'status', 'version',)
-    fields = [('schema_name', 'schema_iri', 'schema_file', 'status',),
+    list_display = ('schema_name', 'status', 'version',)
+    fields = [('schema_name', 'schema_file', 'status',),
               ('major_version', 'minor_version', 'patch_version',)]
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj:  # editing an existing object
+            return self.readonly_fields + ('schema_name', 'schema_file',
+                                           'major_version', 'minor_version',
+                                           'patch_version')
+        return self.readonly_fields
 
 
 @admin.register(TransformationLedger)
 class TransformationLedgerAdmin(admin.ModelAdmin):
     """Admin form for the TransformationLedger model"""
-    list_display = ('id', 'source_schema_name', 'source_schema_version',
-                    'target_schema_name', 'target_schema_version', 'status',)
+    list_display = ('id', 'source_schema', 'target_schema', 'status',)
     fields = [('source_schema', 'target_schema',),
               ('schema_mapping_file', 'status',)]
 
@@ -31,3 +38,58 @@ class TransformationLedgerAdmin(admin.ModelAdmin):
         form.base_fields['target_schema'].label_from_instance = \
             lambda obj: "{} {}".format(obj.schema_name, obj.version)
         return form
+
+
+@admin.register(TermSet)
+class TermSetAdmin(admin.ModelAdmin):
+    """Admin form for the Term Set model"""
+    list_display = ('iri', 'status', 'updated_by', 'modified',)
+    fieldsets = (
+        (None, {'fields': ('iri', 'name', 'version',)}),
+        ('Availability', {'fields': ('status',)}),
+    )
+    readonly_fields = ('iri', 'updated_by', 'modified',)
+
+    def save_model(self, request, obj, form, change):
+        """Overide save_model to pass along current user"""
+        obj.updated_by = request.user
+        return super().save_model(request, obj, form, change)
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.filter(childtermset=None)
+
+
+@admin.register(ChildTermSet)
+class ChildTermSetAdmin(TermSetAdmin):
+    """Admin form for the Child Term Set model"""
+    list_display = ('iri', 'status', 'parent_term_set', 'updated_by',
+                    'modified',)
+    fieldsets = (
+        (None, {'fields': ('iri', 'name',)}),
+        ('Availability', {'fields': ('status',)}),
+        ('Parent', {'fields': ('parent_term_set',)}),
+    )
+
+    def get_queryset(self, request):
+        return super(TermSetAdmin, self).get_queryset(request)
+
+
+@admin.register(Term)
+class TermAdmin(admin.ModelAdmin):
+    """Admin form for the Term model"""
+    list_display = ('iri', 'status', 'term_set', 'updated_by',
+                    'modified', )
+    fieldsets = (
+        (None, {'fields': ('iri', 'name', 'description', 'status',)}),
+        ('Info', {'fields': ('type', 'data_type', 'use', 'source',)}),
+        ('Connections', {'fields': ('term_set', 'mapping',)}),
+        ('Updated', {'fields': ('updated_by',), })
+    )
+    readonly_fields = ('iri', 'updated_by', 'modified',)
+    filter_horizontal = ('mapping',)
+
+    def save_model(self, request, obj, form, change):
+        """Overide save_model to pass along current user"""
+        obj.updated_by = request.user
+        return super().save_model(request, obj, form, change)
