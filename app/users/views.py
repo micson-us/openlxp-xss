@@ -1,5 +1,3 @@
-import json
-
 from django.contrib.auth import authenticate, login, logout
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -27,7 +25,7 @@ class RegisterView(generics.GenericAPIView):
         # create the user in the db
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
+        serializer.save()
 
         # authenticates the user after creation
         user = authenticate(username=username, password=password)

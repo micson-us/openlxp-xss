@@ -2,14 +2,14 @@ from unittest.mock import patch
 
 from django.test import tag
 
+from ..models import SchemaLedger, TermSet
 from .test_setup import TestSetUp
-from ..models import TermSet, SchemaLedger
 
 
 @tag('unit')
 class SignalTests(TestSetUp):
 
-    def test_create_TermSet(self):
+    def test_create_term_set(self):
         """Function to check create postsave of schema ledger
         in termsets and terms"""
 
@@ -21,12 +21,12 @@ class SignalTests(TestSetUp):
             self.assertEqual(termset.version, self.version)
             self.assertEqual(termset.status, self.status)
 
-    def test_update_TermSet(self):
+    def test_update_term_set(self):
         """Function to check update postsave of schema ledger
         in termsets and terms"""
 
         with patch('core.signals.update_status'), \
-                patch('core.signals.create_TermSet'):
+                patch('core.signals.create_term_set'):
 
             self.schema.save()
 
