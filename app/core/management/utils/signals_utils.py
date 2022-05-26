@@ -1,4 +1,8 @@
-from core.models import ChildTermSet, Term
+import logging
+
+from core.models import ChildTermSet, Term, TermSet
+
+logger = logging.getLogger('dict_config_logger')
 
 
 def create_child_termset(termset_name, parent_iri, status, updated_by):
@@ -61,6 +65,57 @@ def update_status(termset, status, updated_by):
         for child_element in child_termset:
             child_termset.update(status=status, updated_by=updated_by)
             update_status(child_element, status, updated_by)
-
     term = termset.terms
     term.update(status=status, updated_by=updated_by)
+
+
+def termset_map(target, source, mapping):
+    """
+    recursive function to create mappings between schemas
+    """
+    for kid in mapping:
+        # if the value in the dict is a string, the key is the term
+        if isinstance(mapping[kid], str):
+            path = mapping[kid].split('.')
+            source_ts = TermSet.objects.get(iri=source.iri)
+
+            try:
+                # traverse the source term sets
+                for step in path[:-1]:
+                    source_ts = source_ts.children.get(
+                        name=step.replace(' ', '_'))
+            except Exception:
+                # if one of the child term sets doesn't exist, log and
+                # skip to the next mapping
+                logger.info(f"Source Term Set {mapping[kid]} does not exist")
+                continue
+
+            source_name = path[-1].replace(' ', '_')
+            target_name = kid.replace(' ', '_')
+
+            # verify terms exist
+            if not target.terms.filter(name=target_name).exists():
+                logger.info(f"Target Term {target_name} does not exist")
+                continue
+            if not source_ts.terms.filter(name=source_name).exists():
+                logger.info(f"Source Term {source_name} does not exist")
+                continue
+
+            # get the terms
+            source_term = source_ts.terms.get(name=source_name)
+            target_term = target.terms.get(name=target_name)
+
+            # add the term connection
+            target_term.mapping.add(source_term)
+            target_term.save()
+
+        # if kid is not a child of target, log and skip to next mapping
+        elif not target.children.filter(name=kid.replace(' ', '_')).exists():
+            logger.info(
+                f"Target Term Set {kid} does not exist in {target.iri}")
+            continue
+
+        # else the key is a child term set
+        else:
+            termset_map(target.children.get(
+                name=kid.replace(' ', '_')), source, mapping[kid])

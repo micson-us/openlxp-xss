@@ -6,9 +6,9 @@ from rest_framework import status
 from rest_framework.generics import GenericAPIView
 from rest_framework.response import Response
 
-from api.serializers import (SchemaLedgerSerializer,
-                             TransformationLedgerSerializer)
-from core.models import SchemaLedger, TransformationLedger
+from api.serializers import TermSetSerializer, TransformationLedgerSerializer
+from core.management.utils.xss_helper import sort_version
+from core.models import TermSet, TransformationLedger
 
 logger = logging.getLogger('dict_config_logger')
 
@@ -27,7 +27,7 @@ def check_status(messages, queryset):
 class SchemaLedgerDataView(GenericAPIView):
     """Handles HTTP requests to the Schema Ledger"""
 
-    queryset = SchemaLedger.objects.all()
+    queryset = TermSet.objects.all().filter(status='published')
 
     def get(self, request):
         """This method defines the API's to retrieve data
@@ -47,7 +47,7 @@ class SchemaLedgerDataView(GenericAPIView):
 
         if name:
             # look for a model with the provided name
-            queryset = queryset.filter(schema_name=name)
+            queryset = queryset.filter(name=name)
 
             if not queryset:
                 messages.append("Error; no schema found with the name '" +
@@ -60,9 +60,8 @@ class SchemaLedgerDataView(GenericAPIView):
             # if the schema name is found, filter for the version.
             # If no version is provided, we fetch the latest version
             if not version:
-                queryset = queryset.order_by('-major_version',
-                                             '-minor_version',
-                                             '-patch_version')
+                queryset = [ts for ts in queryset]
+                queryset = sort_version(queryset, reverse_order=True)
             else:
                 queryset = queryset.filter(version=version)
 
@@ -75,8 +74,7 @@ class SchemaLedgerDataView(GenericAPIView):
                 return Response(errorMsg, status.HTTP_400_BAD_REQUEST)
         elif iri:
             # look for a model with the provided name
-            queryset = SchemaLedger.objects.all() \
-                .filter(schema_iri=iri)
+            queryset = queryset.filter(iri=iri)
 
             if not queryset:
                 messages.append("Error; no schema found with the iri '" +
@@ -91,14 +89,14 @@ class SchemaLedgerDataView(GenericAPIView):
             logger.error(messages)
             return Response(errorMsg, status.HTTP_400_BAD_REQUEST)
         try:
-            queryset = check_status(messages, queryset)
-            serializer_class = SchemaLedgerSerializer(queryset.first())
-            logger.info(queryset.first().metadata)
+            serializer_class = TermSetSerializer(queryset[0])
+            logger.info(queryset[0])
             # only way messages gets sent is if there was
             # an error serializing or in the response process.
             messages.append(
                 "Error fetching records please check the logs.")
-            return Response(serializer_class.data, status.HTTP_200_OK)
+            return Response(serializer_class.data,
+                            status.HTTP_200_OK)
         except ObjectDoesNotExist:
             errorMsg = {
                 "message": messages
@@ -116,7 +114,7 @@ class SchemaLedgerDataView(GenericAPIView):
 
 class TransformationLedgerDataView(GenericAPIView):
     """Handles HTTP requests to the Transformation Ledger"""
-    queryset = TransformationLedger.objects.all()
+    queryset = TransformationLedger.objects.all().filter(status='published')
 
     def get(self, request):
         """This method defines the API's to retrieve data
@@ -189,7 +187,7 @@ class TransformationLedgerDataView(GenericAPIView):
         if source_name:
             # look for a model with the provided name
             queryset = self.queryset. \
-                filter(source_schema__schema_name__contains=source_name)
+                filter(source_schema__name=source_name)
             if not queryset:
                 messages.append("Error; no source schema found "
                                 "with the name '" + source_name + "'")
@@ -198,11 +196,14 @@ class TransformationLedgerDataView(GenericAPIView):
             # if the schema name is found, filter for the version.
             # If no version is provided, we fetch the latest version
             if not source_version:
-                queryset = queryset. \
-                    order_by('-source_schema__version')
+                term_sets = TermSet.objects.all().filter(
+                    status='published').filter(name=source_name)
+                term_sets = [ts for ts in term_sets]
+                term_set = sort_version(term_sets, reverse_order=True)[0]
+                queryset = queryset.filter(source_schema=term_set)
             else:
                 queryset = queryset.filter(
-                    source_schema__version__contains=source_version)
+                    source_schema__version=source_version)
             if not queryset:
                 messages.append(
                     "Error; no source schema found for version '" +
@@ -211,7 +212,7 @@ class TransformationLedgerDataView(GenericAPIView):
         elif source_iri:
             # look for a model with the provided iri
             queryset = self.queryset. \
-                filter(source_schema__schema_iri__contains=source_iri)
+                filter(source_schema__iri=source_iri)
 
             if not queryset:
                 messages.append("Error; no schema found "
@@ -225,7 +226,7 @@ class TransformationLedgerDataView(GenericAPIView):
             # look for a model with the provided name
             queryset = \
                 queryset.filter(
-                    target_schema__schema_name__contains=target_name)
+                    target_schema__name=target_name)
 
             if not queryset:
                 messages. \
@@ -236,11 +237,14 @@ class TransformationLedgerDataView(GenericAPIView):
             # if the schema name is found, filter for the version.
             # If no version is provided, we fetch the latest version
             if not target_version:
-                queryset = queryset. \
-                    order_by('-target_schema__version')
+                term_sets = TermSet.objects.all().filter(
+                    status='published').filter(name=target_name)
+                term_sets = [ts for ts in term_sets]
+                term_set = sort_version(term_sets, reverse_order=True)[0]
+                queryset = queryset.filter(target_schema=term_set)
             else:
                 queryset = queryset.filter(
-                    target_schema__version__contains=target_version)
+                    target_schema__version=target_version)
 
             if not queryset:
                 messages.append(
@@ -251,7 +255,7 @@ class TransformationLedgerDataView(GenericAPIView):
         elif target_iri:
             # look for a model with the provided name
             queryset = queryset.filter(
-                target_schema__schema_iri__contains=target_iri)
+                target_schema__iri=target_iri)
 
             if not queryset:
                 messages.append("Error; no schema found "

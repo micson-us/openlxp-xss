@@ -42,6 +42,13 @@ class TermSet(TimeStampedModel):
 
         super().save(*args, **kwargs)
 
+    def export(self):
+        children = {kid.name: kid.export()
+                    for kid in self.children.filter(status='published')}
+        terms = {term.name: term.export()
+                 for term in self.terms.filter(status='published')}
+        return {**children, **terms}
+
 
 class ChildTermSet(TermSet):
     """Model for Child Termsets"""
@@ -99,6 +106,17 @@ class Term(TimeStampedModel):
             kwargs['update_fields'] = set(update_fields).union({'iri'})
 
         super().save(*args, **kwargs)
+
+    def export(self):
+        attrs = {}
+        attrs['use'] = self.use
+        if(self.data_type is not None and self.data_type != ''):
+            attrs['data_type'] = self.data_type
+        if(self.source is not None and self.source != ''):
+            attrs['source'] = self.source
+        if(self.description is not None and self.description != ''):
+            attrs['description'] = self.description
+        return {**attrs}
 
 
 class SchemaLedger(TimeStampedModel):
@@ -178,10 +196,10 @@ class TransformationLedger(TimeStampedModel):
     SCHEMA_STATUS_CHOICES = [('published', 'published'),
                              ('retired', 'retired')]
 
-    source_schema = models.ForeignKey(SchemaLedger,
+    source_schema = models.ForeignKey(TermSet,
                                       on_delete=models.CASCADE,
                                       related_name='source_mapping')
-    target_schema = models.ForeignKey(SchemaLedger,
+    target_schema = models.ForeignKey(TermSet,
                                       on_delete=models.CASCADE,
                                       related_name='target_mapping')
     schema_mapping_file = models.FileField(upload_to='schemas/',
@@ -204,11 +222,3 @@ class TransformationLedger(TimeStampedModel):
             self.schema_mapping = json_obj
             json_file.close()
             self.schema_mapping_file = None
-
-        if self.source_schema:
-            self.source_schema_name = self.source_schema.schema_name
-            self.source_schema_version = self.source_schema.version
-
-        if self.target_schema:
-            self.target_schema_name = self.target_schema.schema_name
-            self.target_schema_version = self.target_schema.version
