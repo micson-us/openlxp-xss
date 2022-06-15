@@ -78,7 +78,7 @@ This component responsible for managing pertinent object/record metadata schemas
    - `Minor Version` Add the Minor value of the schema version
    - `Patch Version` Add the Patch version number of the schema
     
-Note :  On uploading the schema file in the required format to the schema ledger the creation of corresponding term set, linked child term set and terms process is triggered.
+Note:  On uploading the schema file in the required format to the schema ledger the creation of corresponding term set, linked child term set and terms process is triggered.
    
 
 3.  **Add Transformation Ledger:**
@@ -89,7 +89,7 @@ Note :  On uploading the schema file in the required format to the schema ledger
       - `Schema Mapping File` Upload the Schema Mapping file to be referenced for mapping in the required format(JSON)
       - `Status` Select if the Schema Mapping is Published or Retired
     
-Note :  On uploading the Schema Mapping File in the required format to the transformation ledger, this triggers the process of adding the mapping for the corresponding term values.
+Note:  On uploading the Schema Mapping File in the required format to the transformation ledger, this triggers the process of adding the mapping for the corresponding term values.
     
 4. **Add Term set:**
     
